@@ -1,7 +1,6 @@
 from html import escape
 from pathlib import Path
 import pickle
-import re
 
 import numpy as np
 import streamlit as st
@@ -19,80 +18,46 @@ CLASS_NAMES = [
     "Reactions to Footage & Specific Moments",
     "Unrelated/Unintelligible",
 ]
-
+# Two examples for each category except unrelated; categories are intentionally hidden in the UI.
 EXAMPLES = [
-    ("China / Dam & Conspiracy Theories", [
-        "China built this dam to control the river and hide the truth.",
-        "This was sabotage by China; they caused the dam to collapse.",
-    ]),
-    ("Climate Change & Natural Causes", [
-        "Heavy monsoon rain and climate change caused the river to overflow.",
-        "The extreme rainfall is a result of changing climate patterns.",
-    ]),
-    ("Death/Damage Toll & Casualty Speculation", [
-        "The death toll has risen to 120, and dozens are still missing.",
-        "So many people have died and homes were destroyed in the flood.",
-    ]),
-    ("Government, Infrastructure & Development Criticism", [
-        "The government ignored warnings and failed to maintain the flood defenses.",
-        "Authorities should build stronger bridges and improve infrastructure.",
-    ]),
-    ("Prayers, Religious & Condolence Messages", [
-        "Praying for everyone affected and their families. May they find strength.",
-        "Heartfelt condolences to those who lost loved ones.",
-    ]),
-    ("Reactions to Footage & Specific Moments", [
-        "The video shows the water rushing through the street.",
-        "That moment when the bridge gives way is terrifying.",
-    ]),
+    "China built this dam to control the river and hide the truth.",
+    "This was sabotage by China; they caused the dam to collapse.",
+    "Heavy monsoon rain and climate change caused the river to overflow.",
+    "The extreme rainfall is a result of changing climate patterns.",
+    "The death toll has risen to 120, and dozens are still missing.",
+    "So many people have died and homes were destroyed in the flood.",
+    "The government ignored warnings and failed to maintain the flood defenses.",
+    "Authorities should build stronger bridges and improve infrastructure.",
+    "Praying for everyone affected and their families. May they find strength.",
+    "Heartfelt condolences to those who lost loved ones.",
+    "The video shows the water rushing through the street.",
+    "That moment when the bridge gives way is terrifying.",
 ]
 
 st.set_page_config(page_title="Nepal Flood Comment Classifier", page_icon="🌊", layout="wide")
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
-:root { --ink:#172d35; --muted:#60757c; --teal:#087e83; --aqua:#dff5f1; --line:#dbe8e6; }
-.stApp { background: radial-gradient(ellipse at 8% 0%, #e6f5f2 0, transparent 34%), linear-gradient(180deg,#f8fbfa 0%,#f3f7f6 100%); color:var(--ink); }
-.block-container { max-width: 1160px; padding-top: 2.2rem; padding-bottom: 4rem; }
-html, body, [class*="css"] { font-family:'DM Sans',sans-serif; }
-h1,h2,h3 { font-family:'Manrope',sans-serif; letter-spacing:-.035em; color:var(--ink); }
-.hero { padding: 1rem 0 1.4rem; }
-.eyebrow { color:var(--teal); font-size:.76rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
-.hero-title { font-family:'Manrope',sans-serif; font-size:clamp(2.4rem,5vw,4rem); line-height:1.04; font-weight:800; color:#173840; margin:.45rem 0 .65rem; }
-.hero-copy { font-size:1.05rem; color:#526b72; max-width:760px; line-height:1.65; }
-.st-key-example_card [data-testid="stVerticalBlockBorderWrapper"] { background:rgba(255,255,255,.9); border:1px solid var(--line); border-radius:20px; padding:.8rem .9rem; box-shadow:0 10px 32px rgba(27,72,73,.055); }
-.section-kicker { font-size:.74rem; color:#648087; font-weight:800; letter-spacing:.13em; text-transform:uppercase; margin-bottom:.45rem; }
-.example-title { color:#173840; font-size:1rem; font-weight:800; line-height:1.35; min-height:2.7rem; padding:.1rem 0 .5rem; }
-.stTextArea textarea { border-radius:14px; border:1px solid #cbdedb; background:#fcfefd; font-size:1rem; }
-.stButton button[kind="primary"] { background:linear-gradient(100deg,#087e83,#0c9a8c); border:0; border-radius:12px; min-height:3rem; font-weight:800; box-shadow:0 8px 18px rgba(8,126,131,.18); }
-.stButton button { border-radius:12px; border-color:#d3e3e0; color:#24454c; background:#fff; transition:all .15s ease; }
-.stButton button:hover { border-color:#0c9691; color:#087e83; transform:translateY(-1px); }
-.result-card { background:linear-gradient(120deg,#e3f5f1,#f5fbf9); border:1px solid #c7e8e1; border-radius:18px; padding:1.2rem 1.4rem; margin:.4rem 0 1rem; }
-.result-label { color:#087e83; text-transform:uppercase; font-size:.72rem; font-weight:800; letter-spacing:.13em; }
-.result-name { color:#173840; font-family:'Manrope',sans-serif; font-size:1.55rem; font-weight:800; margin-top:.25rem; line-height:1.25; }
-.score-note { color:#5d757a; font-size:.87rem; margin-top:.55rem; }
-.contrib { display:flex; align-items:center; gap:12px; margin:9px 0; }
-.contrib-term { width:180px; color:#29464c; font-size:.9rem; font-weight:600; overflow-wrap:anywhere; }
-.contrib-track { flex:1; height:12px; border-radius:8px; background:#edf2f1; overflow:hidden; }
-.contrib-bar { height:100%; border-radius:8px; }
-.contrib-value { width:68px; text-align:right; font-variant-numeric:tabular-nums; color:#60757c; font-size:.8rem; }
-.legend { color:#60757c; font-size:.82rem; }
-div[data-testid="stExpander"] { border:1px solid var(--line); border-radius:14px; background:#fff; }
-@media(max-width:700px) { .contrib-term{width:120px}.block-container{padding-left:1rem;padding-right:1rem} }
-</style>
-""", unsafe_allow_html=True)
+st.title("Nepal Flood Comment Classifier")
+st.caption("Classify a comment and see which words influenced the model's prediction.")
 
 st.markdown("""
-<div class="hero">
-  <div class="eyebrow">Nepal flood · community comments</div>
-  <div class="hero-title">Nepal Flood Comment Classifier</div>
-  <div class="hero-copy">Explore how comments are grouped and which words influenced each prediction. Choose an example to try it, or paste in a comment of your own.</div>
-</div>
+<style>
+div[data-testid="stButton"] button {
+    font-size: .73rem;
+    line-height: 1.25;
+    padding: .35rem .55rem;
+    min-height: 2.6rem;
+}
+.contrib { display:flex; align-items:center; gap:10px; margin:7px 0; }
+.contrib-term { width:175px; font-size:.88rem; overflow-wrap:anywhere; }
+.contrib-track { flex:1; height:11px; border-radius:7px; background:#edf1f0; overflow:hidden; }
+.contrib-bar { height:100%; border-radius:7px; }
+.contrib-value { width:65px; text-align:right; font-size:.78rem; color:#68777a; font-variant-numeric:tabular-nums; }
+.legend { font-size:.8rem; color:#68777a; }
+</style>
 """, unsafe_allow_html=True)
 
 @st.cache_resource
 def load_model():
-    # This bundled pickle is a trusted project artifact.
+    # This pickle is bundled with the prototype and is a trusted project artifact.
     with MODEL_PATH.open("rb") as f:
         model = pickle.load(f)
     model_classes = list(model.named_steps["clf"].classes_)
@@ -110,10 +75,7 @@ model, explainer = load_model()
 
 
 def explanation_scores(texts):
-    """Return normalized LinearSVC margins for LIME's classifier API.
-
-    The normalized margins are relative scores, not calibrated probabilities.
-    """
+    """Normalized LinearSVC margins for LIME; these are not calibrated probabilities."""
     margins = np.asarray(model.decision_function(list(texts)))
     if margins.ndim == 1:
         margins = np.column_stack([-margins, margins])
@@ -124,46 +86,39 @@ def use_example(example):
     st.session_state["comment_input"] = example
     st.session_state["run_prediction"] = True
 
+text = st.text_area(
+    "Comment to classify",
+    placeholder="Paste a short comment here…",
+    height=130,
+    max_chars=5000,
+    key="comment_input",
+)
 
-st.markdown('<div class="section-kicker">Try a sample comment</div>', unsafe_allow_html=True)
-columns = st.columns(3, gap="medium")
-for index, (label, examples) in enumerate(EXAMPLES):
-    with columns[index % 3]:
-        with st.container(border=True, key=f"example_card_{index}"):
-            st.markdown(f'<div class="example-title">{escape(label)}</div>', unsafe_allow_html=True)
-            for example_index, example in enumerate(examples):
-                st.button(
-                    example,
-                    key=f"example_{index}_{example_index}",
-                    use_container_width=True,
-                    on_click=use_example,
-                    args=(example,),
-                )
+st.caption("Try an example")
+example_columns = st.columns(3)
+for i, example in enumerate(EXAMPLES):
+    with example_columns[i % 3]:
+        st.button(
+            example,
+            key=f"example_{i}",
+            use_container_width=True,
+            on_click=use_example,
+            args=(example,),
+        )
 
-st.markdown("<br>", unsafe_allow_html=True)
-with st.container(border=True):
-    st.markdown('<div class="section-kicker">Your comment</div>', unsafe_allow_html=True)
-    text = st.text_area(
-        "Paste a comment to classify",
-        placeholder="For example: The government should have warned people sooner…",
-        height=120,
-        max_chars=5000,
-        label_visibility="collapsed",
-        key="comment_input",
-    )
-    controls = st.columns([1, 2, 3])
-    with controls[0]:
-        clicked = st.button("Classify comment", type="primary", use_container_width=True)
-    with controls[1]:
-        num_features = st.slider("Words to explain", 5, 15, 9)
+col1, col2 = st.columns([1, 3])
+with col1:
+    clicked = st.button("Classify and explain", type="primary", use_container_width=True)
+with col2:
+    num_features = st.slider("Words to show in the explanation", 5, 20, 10)
 
 example_requested_run = st.session_state.pop("run_prediction", False)
-run_now = clicked or example_requested_run
-if run_now:
+if clicked or example_requested_run:
+    text = st.session_state.get("comment_input", "")
     if not text.strip():
         st.warning("Enter a comment first.")
     else:
-        with st.spinner("Reading the comment and preparing its explanation…"):
+        with st.spinner("Classifying and preparing the explanation…"):
             predicted_id = int(model.predict([text])[0])
             score_vector = explanation_scores([text])[0]
             exp = explainer.explain_instance(
@@ -175,20 +130,18 @@ if run_now:
             )
             explanation = [(str(term), float(weight)) for term, weight in exp.as_list(label=predicted_id)]
 
-        st.markdown('<div class="section-kicker">Model result</div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="result-card"><div class="result-label">Predicted category</div>'
-            f'<div class="result-name">{escape(CLASS_NAMES[predicted_id])}</div>'
-            f'<div class="score-note">Relative LinearSVC margin score: {score_vector[predicted_id]:.3f} · not a calibrated probability</div></div>',
-            unsafe_allow_html=True,
+        st.subheader("Prediction")
+        st.markdown(f"### {CLASS_NAMES[predicted_id]}")
+        st.caption(
+            f"Normalized LinearSVC margin score: {score_vector[predicted_id]:.3f}. "
+            "This is a relative score, not a calibrated probability."
         )
-        st.markdown("### What shaped this prediction?")
-        st.caption("LIME changes words in the comment and observes how the model responds. Green bars support the predicted category; coral bars push away from it. This is a local approximation for this comment.")
-
+        st.subheader("Why this prediction?")
+        st.write("LIME estimates how each token affects this prediction. Positive values support the predicted class; negative values push away from it.")
         if explanation:
             largest = max(abs(weight) for _, weight in explanation) or 1.0
             for term, weight in explanation:
-                color = "#168477" if weight >= 0 else "#d16d62"
+                color = "#218c74" if weight >= 0 else "#d35454"
                 width = max(2.0, 100 * abs(weight) / largest)
                 st.markdown(
                     f'<div class="contrib"><div class="contrib-term">{escape(term)}</div>'
@@ -196,20 +149,19 @@ if run_now:
                     f'<div class="contrib-value">{weight:+.3f}</div></div>',
                     unsafe_allow_html=True,
                 )
+            st.markdown('<div class="legend">Green supports the prediction; red pushes against it. Bars are scaled within this explanation.</div>', unsafe_allow_html=True)
         else:
-            st.info("LIME did not find distinct token contributions for this very short comment.")
-        st.markdown('<div class="legend">Bars are sized relative to the strongest token in this explanation.</div>', unsafe_allow_html=True)
+            st.info("This comment is too short for LIME to show distinct token contributions.")
 
-        with st.expander("See relative scores for all categories"):
-            st.caption("These normalized margins help LIME compare perturbations; they are not probabilities.")
+        with st.expander("Scores for every class"):
+            st.caption("Softmax-normalized LinearSVC margins are relative scores, not calibrated probabilities.")
             ranked = sorted(enumerate(score_vector), key=lambda pair: pair[1], reverse=True)
             for class_id, score in ranked:
-                st.write(f"**{CLASS_NAMES[class_id]}** · {score:.3f}")
+                st.write(f"**{CLASS_NAMES[class_id]}** — {score:.3f}")
 
-with st.expander("About the model and explanations"):
+with st.expander("About the model and explanation"):
     st.write(
-        "This prototype uses a word and character TF-IDF feature pipeline with a class-balanced LinearSVC. "
-        "The model's class prediction is direct. LinearSVC does not produce calibrated probabilities, so the "
-        "score list uses softmax-normalized decision margins. LIME uses those relative scores to estimate "
-        "token contributions. Explanations describe a local approximation, not a causal explanation."
+        "The model combines word and character TF-IDF features with a class-balanced LinearSVC. "
+        "LIME perturbs this comment and fits a local approximation to show which tokens influenced "
+        "the prediction. These attributions are explanatory clues, not causal effects."
     )

@@ -1,6 +1,5 @@
-streamlit>=1.50,<2
+streamlit>=1.40,<2
 numpy>=1.26,<3
 scipy>=1.13,<2
 scikit-learn==1.6.1
 lime==0.2.0.1
-matplotlib>=3.8,<4
